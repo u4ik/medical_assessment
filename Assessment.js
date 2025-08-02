@@ -19,6 +19,8 @@ Temperature Risk
 Normal (≤99.5°F): 0 points
 Low Fever (99.6-100.9°F): 1 point
 High Fever (≥100.1°F): 2 points
+
+
 Invalid/Missing Data (0 points):
 • Non-numeric values (e.g., "TEMP_ERROR", "invalid")
 • Null, undefined, or empty values
@@ -115,30 +117,20 @@ async function fetchWithRetry(url, options, retries = 3, backoff = 500) {
 
 function getBpStage(s, d) {
   // Returns the risk stage (1-4) for each value
-  let sysStage = 0,
-    diaStage = 0;
+  let stage = 0;
   if (isNaN(s) || isNaN(d)) return 0;
-
   // systolic
-  if (s < 120) sysStage = 1;
-  else if (s >= 120 && s <= 129) sysStage = 2;
-  else if (s >= 130 && s <= 139) sysStage = 3;
-  else if (s >= 140) sysStage = 4;
+  if (s < 120 && d < 80) stage = 1;
+  else if ((s >= 120 && s <= 129) && d < 80) stage = 2;
+  else if ((s >= 130 && s <= 139) || (d >= 89 && d <=80)) stage = 3;
+  else if (s >= 140 || d >=90) stage = 4;
 
-  // distolic
-  if (d < 80) diaStage = 1;
-  else if (d >= 80 && d <= 89) diaStage = 3;
-  else if (d >= 90) diaStage = 4;
-
-  return Math.max(sysStage, diaStage);
+  return stage;
 }
 
 function scoreBloodPressure(bp) {
   if (!bp || typeof bp !== "string") return { score: 0, invalid: true };
   const parts = bp.split("/");
-  console.log(parts);
-
-  
 
   if (parts.length !== 2) return { score: 0, invalid: true };
   const systolic = Number(parts[0].trim());
@@ -184,6 +176,7 @@ getAllPatients().then(async (patients) => {
 
     const totalRisk = bpResult.score + tempResult.score + ageResult.score;
 
+
     // Only include as high risk if ALL data is valid
     if (
       totalRisk >= 4 &&
@@ -192,14 +185,14 @@ getAllPatients().then(async (patients) => {
       !ageResult.invalid
     ) {
       // highRisk.push(p.patient_id);
-      highRisk.push(p);
+      highRisk.push(p.patient_id);
     }
 
     const t = Number(p.temperature);
     if (!isNaN(t) && t >= 99.6) feverPatients.push(p.patient_id);
 
     if (bpResult.invalid || tempResult.invalid || ageResult.invalid) {
-      dataQualityIssues.push(p);
+      dataQualityIssues.push(p.patient_id);
     }
   }
 
