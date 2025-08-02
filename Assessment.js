@@ -1,6 +1,6 @@
 const API_URL = "https://assessment.ksensetech.com/api/patients";
 const API_KEY = "ak_e66fae2bdc1f709d4eced000f0de19a1afa6181b3ea73003";
-const PAGE_SIZE = 20; // or up to 20
+const PAGE_SIZE = 20;
 
 async function getAllPatients() {
   let allPatients = [];
@@ -41,7 +41,7 @@ async function getAllPatients() {
     allPatients = allPatients.concat(patients);
 
     if (patients.length < PAGE_SIZE) {
-    // if (!data.pagination.hasNextPage) {
+      // if (!data.pagination.hasNextPage) {
       keepGoing = false;
     } else {
       page++;
@@ -65,7 +65,6 @@ async function fetchWithRetry(url, options, retries = 3, backoff = 500) {
     }
   }
 }
-
 
 function parseBloodPressure(bp) {
   if (!bp || typeof bp !== "string") return { systolic: null, diastolic: null };
@@ -112,15 +111,16 @@ function scoreAge(age) {
   return { score: 0, invalid: true };
 }
 
-getAllPatients().then((patients) => {
+getAllPatients().then(async (patients) => {
   console.log("all patient count:", patients.length);
+
+  let final_results = {}
 
   const highRisk = [];
   const feverPatients = [];
   const dataQualityIssues = [];
 
   for (const p of patients) {
-
     const bpResult = scoreBloodPressure(p.blood_pressure);
     const tempResult = scoreTemperature(p.temperature);
     const ageResult = scoreAge(p.age);
@@ -140,7 +140,28 @@ getAllPatients().then((patients) => {
     }
   }
 
-  console.log("High-Risk Patients (score ≥ 4):", highRisk);
-  console.log("Fever Patients (temp ≥ 99.6°F):", feverPatients);
-  console.log("Data Quality Issues:", dataQualityIssues);
+
+  final_results.high_risk_patients = highRisk;
+  final_results.fever_patients = feverPatients;
+  final_results.data_quality_issues = dataQualityIssues;
+
+  console.log("Final Results:", final_results);
+
+  await submitAlert(final_results);
+
 });
+
+const submitAlert = async (final_results) => {
+  const url = "https://assessment.ksensetech.com/api/submit-assessment";
+  const options = {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": API_KEY,
+    },
+    body: JSON.stringify(final_results),
+  };
+
+  const response = await (await fetch(url, options)).json();
+  console.log(response);
+};
