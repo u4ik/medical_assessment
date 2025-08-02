@@ -1,6 +1,53 @@
+/*
+4. Your Task: Implement Risk Scoring
+Create a patient risk scoring system. The total risk is the sum of scores from each category.
+
+Blood Pressure Risk
+Note: If systolic and diastolic readings fall into different risk categories, use the higher risk stage for scoring.
+
+Normal (Systolic <120 AND Diastolic <80): 1 points
+Elevated (Systolic 120‑129 AND Diastolic <80): 2 points
+Stage 1 (Systolic 130‑139 OR Diastolic 80‑89): 3 points
+Stage 2 (Systolic ≥140 OR Diastolic ≥90): 4 points
+
+Invalid/Missing Data (0 points):
+• Missing systolic or diastolic values (e.g., "150/" or "/90")
+• Non-numeric values (e.g., "INVALID", "N/A")
+• Null, undefined, or empty values
+
+Temperature Risk
+Normal (≤99.5°F): 0 points
+Low Fever (99.6-100.9°F): 1 point
+High Fever (≥100.1°F): 2 points
+Invalid/Missing Data (0 points):
+• Non-numeric values (e.g., "TEMP_ERROR", "invalid")
+• Null, undefined, or empty values
+Age Risk
+Under 40 (<40 years): 1 points
+40-65 (40-65 years, inclusive): 1 point
+Over 65 (>65 years): 2 points
+
+Invalid/Missing Data (0 points):
+• Null, undefined, or empty values
+• Non-numeric strings (e.g., "fifty-three", "unknown")
+
+Total Risk Score = (BP Score) + (Temp Score) + (Age Score)
+
+Required Outputs
+Your solution should be able to produce these outputs based on your data analysis.
+Alert Lists: Your system should identify patients who meet specific criteria:
+High-Risk Patients: Patient IDs with total risk score ≥ 4
+Fever Patients: Patient IDs with temperature ≥ 99.6°F
+Data Quality Issues: Patient IDs with invalid/missing data (e.g., BP, Age, or Temp is missing/malformed)
+
+
+
+*/
+
+
 const API_URL = "https://assessment.ksensetech.com/api/patients";
 const API_KEY = "ak_e66fae2bdc1f709d4eced000f0de19a1afa6181b3ea73003";
-const PAGE_SIZE = 20;
+const LIMIT = 20;
 
 async function getAllPatients() {
   let allPatients = [];
@@ -8,7 +55,7 @@ async function getAllPatients() {
   let keepGoing = true;
 
   while (keepGoing) {
-    const url = `${API_URL}?page=${page}&limit=${PAGE_SIZE}`;
+    const url = `${API_URL}?page=${page}&limit=${LIMIT}`;
     const options = {
       headers: {
         "Content-Type": "application/json",
@@ -40,8 +87,7 @@ async function getAllPatients() {
 
     allPatients = allPatients.concat(patients);
 
-    if (patients.length < PAGE_SIZE) {
-      // if (!data.pagination.hasNextPage) {
+    if (patients.length < LIMIT) {
       keepGoing = false;
     } else {
       page++;
@@ -147,7 +193,8 @@ getAllPatients().then(async (patients) => {
       !tempResult.invalid &&
       !ageResult.invalid
     ) {
-      highRisk.push(p.patient_id);
+      // highRisk.push(p.patient_id);
+      highRisk.push(p);
     }
 
     const t = Number(p.temperature);
@@ -161,10 +208,10 @@ getAllPatients().then(async (patients) => {
   final_results.high_risk_patients = highRisk;
   final_results.fever_patients = feverPatients;
   final_results.data_quality_issues = dataQualityIssues;
-
+  console.log(patients);
   console.log("Final Results:", final_results);
 
-  await submitAlert(final_results);
+  // await submitAlert(final_results);
 });
 
 const submitAlert = async (final_results) => {
