@@ -44,7 +44,6 @@ Data Quality Issues: Patient IDs with invalid/missing data (e.g., BP, Age, or Te
 
 */
 
-
 const API_URL = "https://assessment.ksensetech.com/api/patients";
 const API_KEY = "ak_e66fae2bdc1f709d4eced000f0de19a1afa6181b3ea73003";
 const LIMIT = 20;
@@ -112,12 +111,7 @@ async function fetchWithRetry(url, options, retries = 3, backoff = 500) {
   }
 }
 
-function parseBloodPressure(bp) {
-  if (!bp || typeof bp !== "string") return { systolic: null, diastolic: null };
-  const match = bp.match(/^(\d+)\s*\/\s*(\d+)$/);
-  if (!match) return { systolic: null, diastolic: null };
-  return { systolic: Number(match[1]), diastolic: Number(match[2]) };
-}
+
 
 function getBpStage(s, d) {
   // Returns the risk stage (1-4) for each value
@@ -142,10 +136,14 @@ function getBpStage(s, d) {
 function scoreBloodPressure(bp) {
   if (!bp || typeof bp !== "string") return { score: 0, invalid: true };
   const parts = bp.split("/");
+  console.log(parts);
+
+  
+
   if (parts.length !== 2) return { score: 0, invalid: true };
   const systolic = Number(parts[0].trim());
   const diastolic = Number(parts[1].trim());
-  if (isNaN(systolic) || isNaN(diastolic)) return { score: 0, invalid: true };
+  if (isNaN(systolic) || isNaN(diastolic) || diastolic === 0 || systolic === 0) return { score: 0, invalid: true };
 
   const stage = getBpStage(systolic, diastolic);
   if (stage === 0) return { score: 0, invalid: true };
@@ -201,20 +199,20 @@ getAllPatients().then(async (patients) => {
     if (!isNaN(t) && t >= 99.6) feverPatients.push(p.patient_id);
 
     if (bpResult.invalid || tempResult.invalid || ageResult.invalid) {
-      dataQualityIssues.push(p.patient_id);
+      dataQualityIssues.push(p);
     }
   }
 
   final_results.high_risk_patients = highRisk;
   final_results.fever_patients = feverPatients;
   final_results.data_quality_issues = dataQualityIssues;
-  console.log(patients);
+  // console.log(patients);
   console.log("Final Results:", final_results);
 
   // await submitAlert(final_results);
 });
 
-const submitAlert = async (final_results) => {
+async function submitAlert(final_results) {
   const url = "https://assessment.ksensetech.com/api/submit-assessment";
   const options = {
     method: "POST",
@@ -227,4 +225,4 @@ const submitAlert = async (final_results) => {
 
   const response = await (await fetch(url, options)).json();
   console.log(JSON.stringify(response));
-};
+}
