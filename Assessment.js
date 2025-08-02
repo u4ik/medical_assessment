@@ -129,7 +129,6 @@ function getBpStage(s, d) {
 function scoreBloodPressure(bp) {
   if (!bp || typeof bp !== "string") return { score: 0, invalid: true };
   const parts = bp.split("/");
-  console.log(parts);
   if (parts.length !== 2) return { score: 0, invalid: true };
   const systolic = Number(parts[0].trim());
   const diastolic = Number(parts[1].trim());
@@ -176,19 +175,17 @@ getAllPatients().then(async (patients) => {
     const totalRisk = bpResult.score + tempResult.score + ageResult.score;
 
     if (bpResult.invalid || tempResult.invalid || ageResult.invalid) {
-      console.log({
-        bp: bpResult.invalid,
-        temp: tempResult.invalid,
-        age: ageResult.invalid,
-      });
-      console.log(p);
-      dataQualityIssues.push(p);
+
+      dataQualityIssues.push(p.patient_id);
     } else if (
       totalRisk >= 4 &&
       !bpResult.invalid &&
       !tempResult.invalid &&
       !ageResult.invalid
     ) {
+      console.log("HIGH RISK:");
+      console.log(totalRisk);
+      console.log(p);
       highRisk.push(p.patient_id);
     }
 
