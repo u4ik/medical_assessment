@@ -113,17 +113,15 @@ async function fetchWithRetry(url, options, retries = 3, backoff = 500) {
   }
 }
 
-
-
 function getBpStage(s, d) {
   // Returns the risk stage (1-4) for each value
   let stage = 0;
   if (isNaN(s) || isNaN(d)) return 0;
   // systolic
   if (s < 120 && d < 80) stage = 1;
-  else if ((s >= 120 && s <= 129) && d < 80) stage = 2;
-  else if ((s >= 130 && s <= 139) || (d >= 89 && d <=80)) stage = 3;
-  else if (s >= 140 || d >=90) stage = 4;
+  else if (s >= 120 && s <= 129 && d < 80) stage = 2;
+  else if ((s >= 130 && s <= 139) || (d >= 80 && d <= 89)) stage = 3;
+  else if (s >= 140 || d >= 90) stage = 4;
 
   return stage;
 }
@@ -131,11 +129,12 @@ function getBpStage(s, d) {
 function scoreBloodPressure(bp) {
   if (!bp || typeof bp !== "string") return { score: 0, invalid: true };
   const parts = bp.split("/");
-
+  console.log(parts);
   if (parts.length !== 2) return { score: 0, invalid: true };
   const systolic = Number(parts[0].trim());
   const diastolic = Number(parts[1].trim());
-  if (isNaN(systolic) || isNaN(diastolic) || diastolic === 0 || systolic === 0) return { score: 0, invalid: true };
+  if (isNaN(systolic) || isNaN(diastolic) || diastolic === 0 || systolic === 0)
+    return { score: 0, invalid: true };
 
   const stage = getBpStage(systolic, diastolic);
   if (stage === 0) return { score: 0, invalid: true };
@@ -176,30 +175,30 @@ getAllPatients().then(async (patients) => {
 
     const totalRisk = bpResult.score + tempResult.score + ageResult.score;
 
-
-    // Only include as high risk if ALL data is valid
-    if (
+    if (bpResult.invalid || tempResult.invalid || ageResult.invalid) {
+      console.log({
+        bp: bpResult.invalid,
+        temp: tempResult.invalid,
+        age: ageResult.invalid,
+      });
+      console.log(p);
+      dataQualityIssues.push(p);
+    } else if (
       totalRisk >= 4 &&
       !bpResult.invalid &&
       !tempResult.invalid &&
       !ageResult.invalid
     ) {
-      // highRisk.push(p.patient_id);
       highRisk.push(p.patient_id);
     }
 
     const t = Number(p.temperature);
     if (!isNaN(t) && t >= 99.6) feverPatients.push(p.patient_id);
-
-    if (bpResult.invalid || tempResult.invalid || ageResult.invalid) {
-      dataQualityIssues.push(p.patient_id);
-    }
   }
 
   final_results.high_risk_patients = highRisk;
   final_results.fever_patients = feverPatients;
   final_results.data_quality_issues = dataQualityIssues;
-  // console.log(patients);
   console.log("Final Results:", final_results);
 
   // await submitAlert(final_results);
