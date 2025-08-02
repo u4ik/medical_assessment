@@ -73,24 +73,37 @@ function parseBloodPressure(bp) {
   return { systolic: Number(match[1]), diastolic: Number(match[2]) };
 }
 
+function getBpStage(s, d) {
+  // Returns the risk stage (1-4) for each value
+  let sysStage = 0,
+    diaStage = 0;
+  if (isNaN(s) || isNaN(d)) return 0;
+
+  // systolic
+  if (s < 120) sysStage = 1;
+  else if (s >= 120 && s <= 129) sysStage = 2;
+  else if (s >= 130 && s <= 139) sysStage = 3;
+  else if (s >= 140) sysStage = 4;
+
+  // distolic
+  if (d < 80) diaStage = 1;
+  else if (d >= 80 && d <= 89) diaStage = 3;
+  else if (d >= 90) diaStage = 4;
+
+  return Math.max(sysStage, diaStage);
+}
+
 function scoreBloodPressure(bp) {
   if (!bp || typeof bp !== "string") return { score: 0, invalid: true };
-  const match = bp.match(/^(\d+)\s*\/\s*(\d+)$/);
-  if (!match) return { score: 0, invalid: true };
-  const systolic = Number(match[1]);
-  const diastolic = Number(match[2]);
+  const parts = bp.split("/");
+  if (parts.length !== 2) return { score: 0, invalid: true };
+  const systolic = Number(parts[0].trim());
+  const diastolic = Number(parts[1].trim());
   if (isNaN(systolic) || isNaN(diastolic)) return { score: 0, invalid: true };
 
-  if (systolic < 120 && diastolic < 80) return { score: 1, invalid: false };
-  if (systolic >= 120 && systolic <= 129 && diastolic < 80)
-    return { score: 2, invalid: false };
-  if (
-    (systolic >= 130 && systolic <= 139) ||
-    (diastolic >= 80 && diastolic <= 89)
-  )
-    return { score: 3, invalid: false };
-  if (systolic >= 140 || diastolic >= 90) return { score: 4, invalid: false };
-  return { score: 0, invalid: true };
+  const stage = getBpStage(systolic, diastolic);
+  if (stage === 0) return { score: 0, invalid: true };
+  return { score: stage, invalid: false };
 }
 
 function scoreTemperature(temp) {
@@ -114,7 +127,7 @@ function scoreAge(age) {
 getAllPatients().then(async (patients) => {
   console.log("all patient count:", patients.length);
 
-  let final_results = {}
+  let final_results = {};
 
   const highRisk = [];
   const feverPatients = [];
@@ -127,19 +140,23 @@ getAllPatients().then(async (patients) => {
 
     const totalRisk = bpResult.score + tempResult.score + ageResult.score;
 
-    // High risk
-    if (totalRisk >= 4) highRisk.push(p.patient_id);
+    // Only include as high risk if ALL data is valid
+    if (
+      totalRisk >= 4 &&
+      !bpResult.invalid &&
+      !tempResult.invalid &&
+      !ageResult.invalid
+    ) {
+      highRisk.push(p.patient_id);
+    }
 
-    // High fever
     const t = Number(p.temperature);
     if (!isNaN(t) && t >= 99.6) feverPatients.push(p.patient_id);
 
-    // Patients data qualty issues
     if (bpResult.invalid || tempResult.invalid || ageResult.invalid) {
       dataQualityIssues.push(p.patient_id);
     }
   }
-
 
   final_results.high_risk_patients = highRisk;
   final_results.fever_patients = feverPatients;
@@ -148,7 +165,6 @@ getAllPatients().then(async (patients) => {
   console.log("Final Results:", final_results);
 
   await submitAlert(final_results);
-
 });
 
 const submitAlert = async (final_results) => {
@@ -163,5 +179,5 @@ const submitAlert = async (final_results) => {
   };
 
   const response = await (await fetch(url, options)).json();
-  console.log(response);
+  console.log(JSON.stringify(response));
 };
